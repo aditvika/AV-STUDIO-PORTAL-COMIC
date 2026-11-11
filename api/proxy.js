@@ -17,6 +17,22 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Access-Control-Allow-Origin', '*');
 
+    // Jika konten berupa HTML, kita rewrite link-nya agar tetap lewat proxy
+    if (contentType.includes('text/html')) {
+      let html = await response.text();
+      const targetOrigin = new URL(targetUrl).origin;
+
+      // Otomatis arahkan semua link dan aset internal agar masuk ke proxy gateway kita
+      html = html.replace(/href="\/([^"]*)"/g, `href="/api/proxy?url=${targetOrigin}/$1"`);
+      html = html.replace(/src="\/([^"]*)"/g, `src="/api/proxy?url=${targetOrigin}/$1"`);
+      
+      html = html.replace(new RegExp(`href="${targetOrigin}([^"]*)"`, 'g'), `href="/api/proxy?url=${targetOrigin}$1"`);
+      html = html.replace(new RegExp(`src="${targetOrigin}([^"]*)"`, 'g'), `src="/api/proxy?url=${targetOrigin}$1"`);
+
+      return res.status(response.status).send(html);
+    }
+
+    // Untuk file gambar, CSS, atau JS, teruskan mentah-mentah
     const buffer = await response.arrayBuffer();
     return res.status(response.status).send(Buffer.from(buffer));
 
